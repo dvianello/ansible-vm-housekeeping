@@ -8,8 +8,6 @@ Requirements
 ------------
 See `meta/main.yml`.
 
-None.
-
 Role Variables
 --------------
 See `defaults/main.yml`.
