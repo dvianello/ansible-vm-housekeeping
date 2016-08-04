@@ -32,6 +32,7 @@ remove_logs:
   - /var/log/anaconda
   - /var/log/cloud-init-output.log
   - /var/log/boot.log
+  - /var/log/messages
 
 # Log files that will be truncated (not removed!)
 truncate_logs:
