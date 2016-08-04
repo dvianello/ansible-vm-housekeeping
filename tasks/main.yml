@@ -1,2 +1,129 @@
 ---
-# tasks file for ansible-clean-vm
+# tasks file for vm-housekeeping
+  # Stop logging since we don't want to log ourself :-)
+  - name: Stop rsyslog & auditd
+    service: name=rsyslog state=stopped
+
+  # Auditd can't be stopped via the service module as it is
+  # treated differently by the kernel!
+  - name: Stop auditd
+    command: service auditd stop
+
+  # Fix requiretty in sudoers
+  - name: Disable requiretty only for the deployment user
+    lineinfile: regexp="^Defaults:{{ deployment_user }}\s+!requiretty" line="Defaults:centos !requiretty" dest=/etc/sudoers state=present validate='visudo -cf %s'
+    when: deployment_user is defined
+
+  - name: Make sure tty to run sudo is required by default
+    lineinfile: regexp="^Defaults\s+requiretty"
+                line="Defaults requiretty"
+                dest=/etc/sudoers
+                insertbefore="^Defaults:{{ deployment_user|default(omit) }}\s+!requiretty"
+                state=present
+                validate='visudo -cf %s'
+
+  # Remove unneeded packages, add ntp and update all the rest
+  - name: Remove unneded packages
+    yum: name="{{ item }}" state=absent
+    with_items: "{{ remove_packages }}"
+    when: remove_packages is defined
+
+  - name: Install ntp and ntpdate
+    yum: name="{{ item }}" state=present
+    with_items:
+      - ntp
+      - ntpdate
+
+  - name: Force first ntp sync
+    command: ntpdate pool.ntp.org
+
+  - name: Update all packages
+    yum: name=* state=latest
+    when: update_packages
+
+  # Start the spring cleaning!
+  ## Install srm to perform safe removals
+  - name: Install epel-release
+    yum: name=epel-release state=present
+
+  - name: Install srm
+    yum: name="{{ item }}" state=present
+    with_items:
+      - srm
+
+  - name: Remove old kernels
+    command: /bin/package-cleanup -y --oldkernels --count=1
+
+  ## Remove logs
+  - name: Force logrotate
+    command: /usr/sbin/logrotate -f /etc/logrotate.conf
+
+  - name: Find rotated logs
+    find: path="/var/log/" patterns="*-????????,*.gz"
+    register: rotated_logs
+
+  - name: Safely remove rotated logs
+    command: srm -D "{{ item.path }}"
+    with_items: "{{ rotated_logs.files }}"
+
+  - name: Safely remove other unneded logs
+    command: srm -D "{{ item }}"
+    with_items: "{{ remove_logs }}"
+    when: remove_logs is defined
+
+  - name: Truncate the audit logs
+    shell: /usr/bin/cat /dev/null > "{{ item }}"
+    with_items: "{{ truncate_logs }}"
+
+  ## Remove network conf
+  - name: Remove UUID/MAC from the networks config
+    lineinfile: dest=/etc/sysconfig/network-scripts/ifcfg-eth0 regexp="^(HWADDR|UUID)=" state=absent
+
+  ## Remove SSH host keys, authorized_keys and bash history
+  - name: Securely remove SSH host keys
+    command: srm –f /etc/ssh/*key*
+
+  - name: Find .ssh folders in /root and /home
+    find: paths="/root,/home" patterns=".ssh" hidden=yes recurse=yes file_type=directory
+    register: ssh_folders
+
+  - name: Securely remove .ssh folders
+    command: srm -rD "{{ item.path }}"
+    with_items: "{{ ssh_folders.files }}"
+
+  - name: Find bash_history on disk
+    find: paths="/root,/home" patterns=".bash_history" recurse=yes hidden=yes
+    register: bash_history
+
+  - name: Securely remove bash_history
+    command: srm -D "{{ item.path }}"
+    with_items: "{{ bash_history.files }}"
+
+  ## General cleaning
+  - name: Clean /tmp
+    shell: rm -rf {{ item }}
+    with_items:
+      - /tmp/*
+      - /var/tmp/*
+
+  - name: Clean yum
+    command: /usr/bin/yum clean all
+
+  - name: Remove caches
+    file: path="/var/cache/{{ item }}" state=absent
+    with_items:
+      - yum
+
+  - name: Remove srm and epel-release
+    yum: name="{{ item }}" state=absent
+    with_items:
+      - srm
+      - epel-release
+
+  - name: Remove yum logs
+    file: path="{{ item }}" state=absent
+    with_items:
+      - /var/log/yum.log
+
+  - name: Remove .ansible folder from ssh user
+    file: path="/home/{{ ansible_ssh_user }}/.ansible" state=absent

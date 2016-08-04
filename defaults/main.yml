@@ -1,2 +1,41 @@
 ---
-# defaults file for ansible-clean-vm
+# defaults file for vm-housekeeping
+
+# This user will not require a tty to run sudo
+deployment_user: centos
+
+# If true, all packages will be updated
+update_packages: true
+
+# Packages that are removed, if present
+remove_packages:
+  - xinetd
+  - telnet-server
+  - rsh-server
+  - telnet
+  - rsh-server
+  - rsh
+  - ypbind
+  - ypserv
+  - tftp-server
+  - bind
+  - vsftpd
+  - httpd
+  - dovecot
+  - squid
+  - net-snmpd
+  - sendmail
+
+# Log files that will be removed
+remove_logs:
+  - /var/log/dmesg.old
+  - /var/log/anaconda
+  - /var/log/cloud-init-output.log
+  - /var/log/boot.log
+
+# Log files that will be truncated (not removed!)
+truncate_logs:
+  - /var/log/audit/audit.log
+  - /var/log/wtmp
+  - /var/log/lastlog
+  - /var/log/grubby
