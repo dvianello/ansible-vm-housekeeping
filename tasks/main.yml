@@ -35,9 +35,7 @@
 
 - name: Force first ntp sync
   command: ntpdate -u pool.ntp.org
-
-- debug: msg="{{ update_packages }}"
-
+  
 - name: Update all packages
   yum: name=* state=latest
   when: update_packages
