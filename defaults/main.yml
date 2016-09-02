@@ -20,7 +20,6 @@ remove_packages:
   - tftp-server
   - bind
   - vsftpd
-  - httpd
   - dovecot
   - squid
   - net-snmpd
