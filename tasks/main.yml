@@ -7,6 +7,8 @@
 # treated differently by the kernel!
 - name: Stop auditd
   command: service auditd stop
+  args:
+    warn: false
 
 # Fix requiretty in sudoers
 - name: Disable requiretty only for the deployment user
@@ -23,35 +25,44 @@
 
 # Remove unneeded packages, add ntp and update all the rest
 - name: Remove unneded packages
-  yum: name="{{ item }}" state=absent
-  with_items: "{{ remove_packages }}"
+  yum:
+    name: "{{ remove_packages }}"
+    state: absent
   when: remove_packages is defined
 
 - name: Install ntp and ntpdate
-  yum: name="{{ item }}" state=present
-  with_items:
-    - ntp
-    - ntpdate
+  yum:
+    name:
+      - ntp
+      - ntpdate
+    state: present
 
 - name: Force first ntp sync
   command: ntpdate -u pool.ntp.org
   
 - name: Update all packages
-  yum: name=* state=latest
+  yum:
+    name: "*"
+    state: latest
   when: update_packages
 
 # Start the spring cleaning!
 ## Install srm to perform safe removals
 - name: Install epel-release
-  yum: name=epel-release state=present
+  yum:
+    name: epel-release
+    state: present
 
 - name: Install srm
-  yum: name="{{ item }}" state=present
-  with_items:
-    - srm
+  yum:
+    name:
+      - srm
+    enablerepo: epel
+    state: present
+
 
 - name: Remove old kernels
-  command: /bin/package-cleanup -y --oldkernels --count=1
+  command: package-cleanup -y --oldkernels --count=1
 
 ## Remove logs
 - name: Force logrotate
@@ -71,7 +82,7 @@
   when: remove_logs is defined
 
 - name: Truncate the audit logs
-  shell: /usr/bin/cat /dev/null > "{{ item }}"
+  shell: cat /dev/null > "{{ item }}"
   with_items: "{{ truncate_logs }}"
 
 ## Remove network conf
@@ -106,7 +117,7 @@
     - /var/tmp/*
 
 - name: Clean yum
-  command: /usr/bin/yum clean all
+  command: yum clean all
 
 - name: Remove caches
   file: path="/var/cache/{{ item }}" state=absent
@@ -114,10 +125,11 @@
     - yum
 
 - name: Remove srm and epel-release
-  yum: name="{{ item }}" state=absent
-  with_items:
-    - srm
-    - epel-release
+  yum:
+    name:
+      - srm
+      - epel-release
+    state: absent
 
 - name: Remove yum logs
   file: path="{{ item }}" state=absent
