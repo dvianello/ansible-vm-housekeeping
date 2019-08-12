@@ -10,7 +10,7 @@
 
 # Fix requiretty in sudoers
 - name: Disable requiretty only for the deployment user
-  lineinfile: regexp="^Defaults:{{ deployment_user }}\s+!requiretty" line="Defaults:centos !requiretty" dest=/etc/sudoers state=present validate='visudo -cf %s'
+  lineinfile: regexp="^Defaults:{{ deployment_user }}\s+!requiretty" line="Defaults:{{ deployment_user }} !requiretty" dest=/etc/sudoers state=present validate='visudo -cf %s'
   when: deployment_user is defined
 
 - name: Make sure tty to run sudo is required by default
